@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="薯薯日記">
+<meta name="theme-color" content="#ede9f7">
+<link rel="manifest" href="manifest.json">
+<title>薯薯日記</title>
+<link href="https://fonts.googleapis.com/css2?family=Iansui&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#f0ece6;display:flex;align-items:center;justify-content:center;font-family:sans-serif}
+.app-shell{position:relative;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,0.1);box-shadow:0 8px 40px rgba(0,0,0,0.12);width:820px;max-width:100vw}
+.app{display:flex;height:680px}
+.sidebar{width:200px;border-right:1px solid rgba(0,0,0,0.08);display:flex;flex-direction:column;padding:14px 10px;gap:6px;flex-shrink:0;transition:background .3s}
+.sidebar-title{font-size:11px;color:rgba(0,0,0,0.35);padding:0 4px 6px;letter-spacing:.06em;font-family:'ZCOOL XiaoWei',serif}
+.day-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;transition:background .15s}
+.day-item:hover,.day-item.active{background:rgba(0,0,0,0.07)}
+.day-item{position:relative}
+.day-item:hover .day-del{opacity:1}
+.day-del{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.12);border:none;cursor:pointer;font-size:11px;color:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;flex-shrink:0}
+.day-del:hover{background:rgba(0,0,0,0.22);color:rgba(0,0,0,0.7)}
+.day-label{font-size:13px;color:rgba(0,0,0,0.75);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;font-family:'ZCOOL XiaoWei',serif}
+.day-sub{font-size:11px;color:rgba(0,0,0,0.38);font-family:'ZCOOL XiaoWei',serif}
+.sidebar-actions{display:flex;gap:5px;margin-bottom:4px;margin-top:2px}
+.sb-action-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:5px 4px;border-radius:7px;cursor:pointer;color:rgba(0,0,0,0.38);font-size:11px;border:1px solid rgba(0,0,0,0.13);transition:all .15s;background:rgba(255,255,255,0.3);font-family:'ZCOOL XiaoWei',serif;letter-spacing:.02em}
+.sb-action-btn:hover{background:rgba(255,255,255,0.6);color:rgba(0,0,0,0.6);border-color:rgba(0,0,0,0.22)}
+.add-btn{display:flex;align-items:center;gap:6px;padding:7px 8px;border-radius:8px;cursor:pointer;color:rgba(0,0,0,0.35);font-size:12px;border:1px dashed rgba(0,0,0,0.18);margin-top:2px;transition:all .15s;background:transparent;font-family:'ZCOOL XiaoWei',serif}
+.add-btn:hover{background:rgba(0,0,0,0.05);color:rgba(0,0,0,0.55);border-color:rgba(0,0,0,0.28)}
+.sidebar-list{display:flex;flex-direction:column;gap:6px;flex:1;overflow-y:auto}
+.sidebar-list::-webkit-scrollbar{width:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.toolbar{display:flex;align-items:center;gap:5px;padding:10px 14px;border-bottom:1px solid rgba(0,0,0,0.08);flex-shrink:0;flex-wrap:nowrap;overflow-x:auto;transition:background .3s}
+.toolbar::-webkit-scrollbar{height:0}
+.mood-row{display:flex;gap:3px}
+.mood-chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 6px;border-radius:8px;cursor:pointer;border:1px solid transparent;transition:all .15s;font-size:9.5px;color:rgba(0,0,0,0.5);position:relative}
+.mood-chip.selected{border-color:rgba(0,0,0,0.18);background:rgba(255,255,255,0.6)}
+.chip-ico{width:28px;height:28px;display:flex;align-items:center;justify-content:center}
+.chip-ico img{width:24px;height:24px;object-fit:contain}
+.chip-name{max-width:44px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.upload-ico-btn{position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;background:rgba(0,0,0,0.28);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;cursor:pointer}
+.upload-ico-btn:hover{background:rgba(0,0,0,0.5)}
+.vsep{width:1px;height:28px;background:rgba(0,0,0,0.1);margin:0 2px;flex-shrink:0}
+.tool-btn{display:flex;align-items:center;gap:3px;font-size:12px;color:rgba(0,0,0,0.5);border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:4px 9px;cursor:pointer;background:rgba(255,255,255,0.5);white-space:nowrap}
+.tool-btn:hover{background:rgba(255,255,255,0.85)}
+.tool-btn.accent{color:#5a7fc4;border-color:rgba(90,127,196,0.4)}
+.autosave-hint{font-size:11px;color:rgba(0,0,0,0.28);margin-left:auto;transition:opacity .3s}
+.editor-wrap{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:12px;transition:background .3s}
+.date-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.date-big{font-size:26px;font-weight:500;color:rgba(0,0,0,0.72);font-family:'Iansui',sans-serif}
+.date-small{font-size:12px;color:rgba(0,0,0,0.35)}
+.weather-row{display:flex;gap:2px;align-items:center}
+.wx-btn{width:28px;height:28px;border-radius:6px;border:1.5px solid transparent;cursor:pointer;background:transparent;display:flex;align-items:center;justify-content:center;padding:0;transition:border-color .15s,background .15s}
+.wx-btn svg{width:16px;height:16px;display:block;overflow:visible}
+.badges-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mood-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px 3px 7px;border-radius:20px;font-size:12px;background:rgba(0,0,0,0.06);color:rgba(0,0,0,0.45)}
+.wx-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;background:rgba(0,0,0,0.05)}
+.wx-badge svg{width:12px;height:12px;display:block}
+.img-block{border-radius:8px;overflow:hidden;max-width:280px;border:1px solid rgba(0,0,0,0.08);position:relative}
+.img-block img.diary-img{width:100%;display:block;max-height:180px;object-fit:cover}
+.img-remove{position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.45);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.sig-row{display:flex;align-items:center;gap:6px;padding:8px 14px;border-top:1px solid rgba(0,0,0,0.07);flex-shrink:0;transition:background .3s}
+.sig-label{font-size:11px;color:rgba(0,0,0,0.35);white-space:nowrap}
+/* overlay */
+.overlay{display:none;position:absolute;inset:0;background:rgba(0,0,0,0.38);align-items:flex-start;justify-content:center;z-index:20;border-radius:14px;overflow-y:auto;padding:24px 0}
+.overlay.show{display:flex}
+/* 輸出卡片 */
+.export-card{border-radius:10px;width:320px;padding:28px 26px;display:flex;flex-direction:column;font-family:'Iansui',Georgia,serif}
+.ex-date-str{font-size:10px;letter-spacing:.14em;margin-bottom:8px}
+.ex-mood-row{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.ex-mood-ico{width:26px;height:26px;display:flex;align-items:center;justify-content:center}
+.ex-mood-ico img{width:24px;height:24px;object-fit:contain}
+.ex-mood-lbl{font-size:11px;letter-spacing:.1em}
+.ex-wx-row{display:flex;align-items:center;gap:5px;margin-bottom:14px}
+.ex-wx-row svg{width:13px;height:13px;display:block}
+.ex-wx-lbl{font-size:10px;letter-spacing:.08em}
+.ex-title{font-size:17px;font-weight:500;line-height:1.7;letter-spacing:.08em;font-family:'Iansui',Georgia,serif;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(0,0,0,0.08)}
+.ex-body{font-size:13.5px;line-height:2.2;letter-spacing:.06em;word-break:break-all;white-space:pre-wrap;font-family:'Iansui',Georgia,serif}
+.ex-img-wrap{margin-top:14px}
+.ex-photo{width:100%;border-radius:5px;display:block;height:auto}
+.ex-caption{font-size:10px;margin-top:5px;letter-spacing:.04em;font-style:italic}
+.ex-footer{margin-top:14px;padding-top:10px;display:flex;justify-content:space-between;align-items:center}
+.ex-sig{font-size:10px;font-style:italic;font-family:'Iansui',Georgia,serif}
+.ex-actions,.nm-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+.btn-dl{padding:5px 14px;border-radius:6px;font-size:12px;border:1px solid #c4bab0;cursor:pointer;background:#faf8f3;color:#7a6e60}
+.btn-cl{padding:5px 12px;border-radius:6px;font-size:12px;border:none;background:transparent;color:#b0a898;cursor:pointer}
+/* 改名彈窗 */
+.nm-card{border-radius:10px;padding:22px 24px;width:280px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,0.14)}
+.nm-title{font-size:14px;color:rgba(0,0,0,0.7);font-weight:500;font-family:'Iansui',sans-serif}
+.nm-fields{display:flex;flex-direction:column;gap:8px}
+.nm-field{display:flex;align-items:center;gap:8px}
+.nm-field-ico{width:24px;text-align:center}
+.nm-field input{flex:1;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:5px 9px;font-size:13px;outline:none;font-family:'Iansui',sans-serif}
+.nm-field input:focus{border-color:rgba(0,0,0,0.3)}
+.btn-nm-ok{padding:5px 16px;border-radius:6px;font-size:13px;cursor:pointer}
+.btn-nm-cl{padding:5px 12px;border-radius:6px;font-size:13px;border:none;background:transparent;color:rgba(0,0,0,0.38);cursor:pointer}
+
+/* ═══════════════════════════════════
+   RWD — 手機版（≤ 640px）
+═══════════════════════════════════ */
+@media (max-width: 640px){
+  html,body{align-items:flex-start;justify-content:flex-start;background:#f0ece6}
+  .app-shell{border-radius:0;border:none;box-shadow:none;width:100vw;min-height:100dvh;display:flex;flex-direction:column}
+  .app{flex-direction:column;height:auto;min-height:100dvh;position:relative}
+
+  /* 側欄：平時隱藏，開啟時從左側滑入 */
+  .sidebar{
+    position:fixed;top:0;left:-100%;width:78vw;max-width:300px;height:100dvh;
+    z-index:50;border-right:1px solid rgba(0,0,0,0.1);
+    box-shadow:4px 0 24px rgba(0,0,0,0.12);
+    transition:left .28s cubic-bezier(.4,0,.2,1),background .3s;
+    border-radius:0;padding:56px 12px 20px
+  }
+  .sidebar.open{left:0}
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:49}
+  .sidebar-overlay.show{display:block}
+
+  /* 頂部導覽列 */
+  .mobile-topbar{
+    display:flex;align-items:center;gap:8px;
+    padding:12px 16px 10px;
+    position:sticky;top:0;z-index:40;
+    border-bottom:1px solid rgba(0,0,0,0.07);
+    flex-shrink:0;transition:background .3s
+  }
+  .mobile-menu-btn{
+    width:36px;height:36px;border-radius:8px;
+    background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.12);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:16px;flex-shrink:0
+  }
+  .mobile-title{
+    flex:1;font-size:15px;color:rgba(0,0,0,0.7);
+    font-family:'ZCOOL XiaoWei',serif;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+  }
+  .mobile-add-btn{
+    width:36px;height:36px;border-radius:8px;
+    background:rgba(255,255,255,0.5);border:1px solid rgba(0,0,0,0.12);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;font-size:20px;color:rgba(0,0,0,0.45);flex-shrink:0
+  }
+
+  /* 桌機頂列隱藏 */
+  .main{overflow:visible}
+
+  /* 工具列：可橫向捲動，高度固定 */
+  .toolbar{padding:8px 12px;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .mood-chip{padding:4px 5px;font-size:9px}
+  .chip-ico{width:24px;height:24px}
+  .vsep{height:22px;margin:0 1px}
+  .tool-btn{font-size:11px;padding:3px 8px}
+
+  /* 編輯區 */
+  .editor-wrap{padding:16px 18px;gap:10px}
+  .date-big{font-size:22px}
+  .img-block{max-width:100%}
+
+  /* 簽名列 */
+  .sig-row{padding:8px 12px;flex-wrap:wrap;gap:6px}
+
+  /* overlay 彈窗全螢幕 */
+  .overlay{border-radius:0;padding:16px 0 80px}
+  .export-card{width:calc(100vw - 32px);max-width:360px}
+  .nm-card{width:calc(100vw - 48px)}
+
+  /* 刪除按鈕在手機上常駐顯示 */
+  .day-del{opacity:0.6}
+}
+
+/* 桌機隱藏手機專用元素 */
+@media (min-width: 641px){
+  .mobile-topbar{display:none}
+  .sidebar-overlay{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+<div class="app" id="the-app">
+  <!-- 手機頂部導覽列 -->
+  <div class="mobile-topbar" id="mobile-topbar">
+    <div class="mobile-menu-btn" onclick="toggleSidebar()">☰</div>
+    <div class="mobile-title" id="mobile-title">薯薯日記</div>
+    <div class="mobile-add-btn" onclick="addEntry()" title="新增日記">＋</div>
+  </div>
+  <!-- 側欄遮罩 -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-title">日記列表</div>
+    <div class="sidebar-list" id="sidebar-list"></div>
+    <div class="sidebar-actions">
+      <div class="sb-action-btn" onclick="backupData()" title="匯出所有日記與設定">↓ 匯出備份</div>
+      <div class="sb-action-btn" onclick="document.getElementById('restore-input').click()" title="從備份檔還原">↑ 匯入備份</div>
+    </div>
+    <div class="add-btn" onclick="addEntry()">＋ 新增日記</div>
+  </div>
+
+  <div class="main">
+    <div class="toolbar" id="toolbar">
+      <div class="mood-row">
+        <div class="mood-chip selected" id="mc-daisy"  onclick="setMood('daisy')">
+          <div class="chip-ico" id="ci-daisy"><span style="font-size:22px">🥔</span></div>
+          <span class="chip-name" id="cn-daisy">呆呆薯</span>
+          <div class="upload-ico-btn" onclick="event.stopPropagation();document.getElementById('up-daisy').click()">+</div>
+          <input type="file" id="up-daisy" accept="image/*" style="display:none" onchange="uploadMoodIco('daisy',this)">
+        </div>
+        <div class="mood-chip" id="mc-genki" onclick="setMood('genki')">
+          <div class="chip-ico" id="ci-genki"><span style="font-size:22px">🌱</span></div>
+          <span class="chip-name" id="cn-genki">元氣薯</span>
+          <div class="upload-ico-btn" onclick="event.stopPropagation();document.getElementById('up-genki').click()">+</div>
+          <input type="file" id="up-genki" accept="image/*" style="display:none" onchange="uploadMoodIco('genki',this)">
+        </div>
+        <div class="mood-chip" id="mc-happy" onclick="setMood('happy')">
+          <div class="chip-ico" id="ci-happy"><span style="font-size:22px">✨</span></div>
+          <span class="chip-name" id="cn-happy">開心薯</span>
+          <div class="upload-ico-btn" onclick="event.stopPropagation();document.getElementById('up-happy').click()">+</div>
+          <input type="file" id="up-happy" accept="image/*" style="display:none" onchange="uploadMoodIco('happy',this)">
+        </div>
+        <div class="mood-chip" id="mc-genius" onclick="setMood('genius')">
+          <div class="chip-ico" id="ci-genius"><span style="font-size:22px">💡</span></div>
+          <span class="chip-name" id="cn-genius">天才薯</span>
+          <div class="upload-ico-btn" onclick="event.stopPropagation();document.getElementById('up-genius').click()">+</div>
+          <input type="file" id="up-genius" accept="image/*" style="display:none" onchange="uploadMoodIco('genius',this)">
+        </div>
+        <div class="mood-chip" id="mc-moe" onclick="setMood('moe')">
+          <div class="chip-ico" id="ci-moe"><span style="font-size:22px">🌸</span></div>
+          <span class="chip-name" id="cn-moe">萌萌薯</span>
+          <div class="upload-ico-btn" onclick="event.stopPropagation();document.getElementById('up-moe').click()">+</div>
+          <input type="file" id="up-moe" accept="image/*" style="display:none" onchange="uploadMoodIco('moe',this)">
+        </div>
+      </div>
+      <div class="vsep"></div>
+      <div class="tool-btn" onclick="openNameModal()" style="font-size:11px;padding:4px 8px">✏️ 改名</div>
+      <div class="vsep"></div>
+      <select id="font-select" style="font-size:12px;border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:3px 7px;cursor:pointer;outline:none" onchange="setFont(this.value)">
+        <option value="'Iansui',sans-serif">Iansui</option>
+        <option value="sans-serif">無襯線</option>
+        <option value="Georgia,serif">明體</option>
+        <option value="'Courier New',monospace">等寬</option>
+      </select>
+      <div class="vsep"></div>
+      <div class="tool-btn" onclick="triggerUpload()">插圖</div>
+      <input type="file" id="img-upload" accept="image/*" style="display:none" onchange="handleUpload(this)">
+      <span class="autosave-hint" id="autosave-hint"></span>
+    </div>
+
+    <div class="editor-wrap" id="editor-wrap">
+      <div>
+        <div class="date-row">
+          <span class="date-big" id="date-display"></span>
+          <span class="date-small" id="day-display"></span>
+          <div class="weather-row" id="weather-row">
+            <button class="wx-btn" id="wx-sunny"   onclick="setWeather('sunny')"   title="晴天"></button>
+            <button class="wx-btn" id="wx-cloudy"  onclick="setWeather('cloudy')"  title="多雲"></button>
+            <button class="wx-btn" id="wx-rain"    onclick="setWeather('rain')"    title="下雨"></button>
+            <button class="wx-btn" id="wx-wind"    onclick="setWeather('wind')"    title="大風"></button>
+            <button class="wx-btn" id="wx-snow"    onclick="setWeather('snow')"    title="下雪"></button>
+            <button class="wx-btn" id="wx-thunder" onclick="setWeather('thunder')" title="雷陣雨"></button>
+            <button class="wx-btn" id="wx-fog"     onclick="setWeather('fog')"     title="起霧"></button>
+          </div>
+        </div>
+        <div class="badges-row">
+          <div class="mood-badge"><span id="badge-ico"></span><span id="badge-label"></span></div>
+          <div class="wx-badge" id="wx-badge" style="display:none"><span id="wx-badge-svg"></span><span id="wx-badge-lbl" style="margin-left:2px"></span></div>
+        </div>
+      </div>
+      <input id="title-input" type="text" placeholder="今天的標題……"
+        style="width:100%;border:none;border-bottom:1px solid rgba(0,0,0,0.1);padding:0 0 10px;font-size:18px;line-height:1.6;letter-spacing:.06em;font-family:'Iansui',sans-serif;background:transparent;color:rgba(0,0,0,0.75);outline:none;display:block;font-weight:500"
+        oninput="autoSave()">
+      <textarea id="editor-text" placeholder="今天想記錄什麼……"
+        style="width:100%;border:none;resize:none;font-size:15px;line-height:2.2;outline:none;min-height:180px;letter-spacing:.06em;font-family:'Iansui',sans-serif;background:transparent;color:rgba(0,0,0,0.72);display:block;margin-top:6px"
+        oninput="autoSave()"></textarea>
+      <div id="img-slot"></div>
+    </div>
+
+    <div class="sig-row" id="sig-row">
+      <span class="sig-label">輸出簽名</span>
+      <input id="sig-input" type="text" placeholder="你的名字或 slogan…"
+        style="flex:1;border:none;outline:none;font-size:12px;font-style:italic;background:transparent;color:rgba(0,0,0,0.5);font-family:'Iansui',Georgia,serif"
+        oninput="autoSave()" value="日常切片">
+      <input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreData(this)">
+      <div class="tool-btn accent" onclick="openExport()" style="flex-shrink:0;margin-left:8px">輸出圖片</div>
+    </div>
+  </div>
+</div>
+
+<!-- 輸出預覽 -->
+<div class="overlay" id="export-overlay" onclick="bgClick(event,'export-overlay')">
+  <div style="display:flex;flex-direction:column;align-items:stretch;width:320px;margin:auto">
+    <div class="export-card" id="export-card">
+      <div class="ex-date-str" id="ex-date"></div>
+      <div class="ex-mood-row">
+        <div class="ex-mood-ico" id="ex-ico-wrap"></div>
+        <div class="ex-mood-lbl" id="ex-lbl"></div>
+      </div>
+      <div class="ex-wx-row" id="ex-wx-row" style="display:none">
+        <span id="ex-wx-svg"></span>
+        <span class="ex-wx-lbl" id="ex-wx-lbl"></span>
+      </div>
+      <div class="ex-title" id="ex-title" style="display:none"></div>
+      <div class="ex-body" id="ex-body"></div>
+      <div id="ex-img-wrap" style="display:none;margin-top:14px">
+        <img id="ex-photo" class="ex-photo" src="" alt=""/>
+        <div class="ex-caption" id="ex-caption"></div>
+      </div>
+      <div class="ex-footer" id="ex-footer">
+        <span id="ex-short" style="font-size:10px;letter-spacing:.08em"></span>
+        <span class="ex-sig" id="ex-sig"></span>
+      </div>
+    </div>
+    <div class="ex-actions" style="justify-content:flex-end">
+      <button class="btn-cl" onclick="document.getElementById('export-overlay').classList.remove('show')">關閉</button>
+      <button class="btn-dl" onclick="doDownload()">儲存圖片</button>
+    </div>
+  </div>
+</div>
+
+<!-- 改名彈窗 -->
+<div class="overlay" id="name-modal" onclick="bgClick(event,'name-modal')">
+  <div style="display:flex;flex-direction:column;align-items:flex-end">
+    <div class="nm-card" id="nm-card">
+      <div class="nm-title">自定義情緒名稱</div>
+      <div class="nm-fields" id="nm-fields"></div>
+      <div class="nm-actions">
+        <button class="btn-nm-cl" onclick="document.getElementById('name-modal').classList.remove('show')">取消</button>
+        <button class="btn-nm-ok" id="btn-nm-ok" onclick="saveNames()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── 資料 ──
+const MOODS={
+  daisy: {label:'呆呆薯',ico:'🥔',icoSrc:null,bg:'#ede9f7',sb:'#e5e0f2',exBg:'#edeaf8',textColor:'#4a446a',mutedColor:'#9b95bb',lineColor:'#cec9e8',wxColor:'#7b6fb8'},
+  genki: {label:'元氣薯',ico:'🌱',icoSrc:null,bg:'#e6f4ed',sb:'#d9ede4',exBg:'#e8f4ee',textColor:'#2d4a3e',mutedColor:'#7aaa94',lineColor:'#b8d8c8',wxColor:'#3d9070'},
+  happy: {label:'開心薯',ico:'✨',icoSrc:null,bg:'#fdf5e0',sb:'#f8eecb',exBg:'#fef6e2',textColor:'#5a4200',mutedColor:'#c09a40',lineColor:'#e8d088',wxColor:'#b08820'},
+  genius:{label:'天才薯',ico:'💡',icoSrc:null,bg:'#eaf2fb',sb:'#d8e8f5',exBg:'#eaf3fc',textColor:'#1e3a5a',mutedColor:'#6a9ac0',lineColor:'#aacce0',wxColor:'#4a7aaa'},
+  moe:   {label:'萌萌薯',ico:'🌸',icoSrc:null,bg:'#f8eaf0',sb:'#f0dfe8',exBg:'#f8eaf2',textColor:'#52203a',mutedColor:'#b07898',lineColor:'#ddb8cc',wxColor:'#a05878'}
+};
+const MOODKEYS=['daisy','genki','happy','genius','moe'];
+const WEATHER={sunny:{label:'晴天'},cloudy:{label:'多雲'},rain:{label:'下雨'},wind:{label:'大風'},snow:{label:'下雪'},thunder:{label:'雷陣雨'},fog:{label:'起霧'}};
+const WX_PATHS={
+  sunny:`<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.07" y2="4.93"/>`,
+  cloudy:`<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 0 1 0 9Z"/>`,
+  rain:`<path d="M17.5 14H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 0 1 0 9Z"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="17" x2="12" y2="19"/><line x1="16" y1="19" x2="16" y2="21"/>`,
+  wind:`<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>`,
+  snow:`<line x1="12" y1="2" x2="12" y2="22"/><path d="m20 17-8-5-8 5"/><path d="m20 7-8 5-8-5"/><path d="m2 12 3-3 3 3"/><path d="m16 12 3-3 3 3"/><path d="m2 12 3 3 3-3"/><path d="m16 12 3 3 3-3"/>`,
+  thunder:`<path d="M17.5 14H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 0 1 0 9Z"/><polyline points="13 11 9 17 15 17 11 23"/>`,
+  fog:`<line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="5" y1="14" x2="19" y2="14"/><line x1="7" y1="18" x2="17" y2="18"/>`
+};
+
+// ── localStorage 工具 ──
+function loadEntry(key){ try{ return JSON.parse(localStorage.getItem('pd-entry-'+key)||'{}'); }catch(e){ return {}; } }
+function saveEntry(key,data){ try{ localStorage.setItem('pd-entry-'+key,JSON.stringify(data)); }catch(e){} }
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem('potato-diary-settings')||'{}'); }catch(e){ return {}; } }
+function saveSettings(obj){ try{ localStorage.setItem('potato-diary-settings',JSON.stringify(obj)); }catch(e){} }
+function loadIndex(){ try{ return JSON.parse(localStorage.getItem('pd-index')||'null'); }catch(e){ return null; } }
+function saveIndex(arr){ try{ localStorage.setItem('pd-index',JSON.stringify(arr)); }catch(e){} }
+
+// ── 日期工具 ──
+function dateInfo(d){
+  const monthAbbr=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const weekEn=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  return {
+    date:`${d.getMonth()+1} 月 ${d.getDate()} 日`,
+    day:`週${'日一二三四五六'[d.getDay()]}`,
+    dateEx:`${d.getFullYear()} · ${String(d.getMonth()+1).padStart(2,'0')} · ${String(d.getDate()).padStart(2,'0')} · ${weekEn[d.getDay()]}`,
+    short:`${monthAbbr[d.getMonth()]} ${String(d.getDate()).padStart(2,'0')}`
+  };
+}
+
+// ── 建立條目物件 ──
+function makeEntry(key){
+  const saved=loadEntry(key);
+  // key 格式：YYYY-M-D 或 custom-timestamp
+  let di;
+  if(key.startsWith('custom-')){
+    const ts=parseInt(key.replace('custom-',''));
+    di=dateInfo(new Date(ts));
+  } else {
+    const [y,m,d]=key.split('-').map(Number);
+    di=dateInfo(new Date(y,m-1,d));
+  }
+  return {
+    key, ...di,
+    mood:   saved.mood||'daisy',
+    weather:saved.weather||null,
+    text:   saved.text||'',
+    imgSrc: saved.imgSrc||null,
+    imgCaption: saved.imgCaption||'',
+    signature:  saved.signature||'',
+    title:  saved.title||''
+  };
+}
+
+// ── 初始 index：過去 5 天 ──
+function defaultIndex(){
+  const now=new Date(); const keys=[];
+  for(let i=0;i<5;i++){
+    const d=new Date(now); d.setDate(now.getDate()-i);
+    keys.push(`${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`);
+  }
+  return keys;
+}
+
+// 載入自定義名稱
+const settings=loadSettings();
+if(settings.moodLabels){ MOODKEYS.forEach(k=>{ if(settings.moodLabels[k]) MOODS[k].label=settings.moodLabels[k]; }); }
+
+// ── ENTRIES 動態陣列 ──
+let INDEX=loadIndex()||defaultIndex();
+// 確保今天永遠在最前面
+const todayKey=(()=>{const n=new Date();return `${n.getFullYear()}-${n.getMonth()+1}-${n.getDate()}`;})();
+if(!INDEX.includes(todayKey)) INDEX.unshift(todayKey);
+saveIndex(INDEX);
+const ENTRIES=INDEX.map(makeEntry);
+let cur=0, saveTimer=null;
+
+// ── 渲染側欄 ──
+function renderSidebar(){
+  const list=document.getElementById('sidebar-list');
+  list.innerHTML=ENTRIES.map((d,i)=>{
+    const title=d.title||d.date;
+    const sub=d.date;
+    const active=i===cur?'active':'';
+    const canDel=ENTRIES.length>1;
+    return `<div class="day-item ${active}" onclick="switchDay(${i})">
+      <div class="chip-ico" style="flex-shrink:0">${icoHTML(d.mood,20)}</div>
+      <div style="flex:1;min-width:0">
+        <div class="day-label" title="${title}">${title}</div>
+        <div class="day-sub">${sub}</div>
+      </div>
+      ${canDel?`<button class="day-del" onclick="event.stopPropagation();deleteEntry(${i})" title="刪除">✕</button>`:''}
+    </div>`;
+  }).join('');
+  // 套用側欄背景
+  const m=MOODS[ENTRIES[cur].mood];
+  document.getElementById('sidebar').style.background=m.sb;
+  document.getElementById('sidebar-list') && (document.getElementById('sidebar-list').style.color='inherit');
+  const mtb=document.getElementById('mobile-topbar');
+  if(mtb) mtb.style.background=m.bg;
+}
+
+// ── 新增日記 ──
+function addEntry(){
+  saveCurrent();
+  const ts=Date.now();
+  const key=`custom-${ts}`;
+  saveEntry(key,{mood:'daisy',weather:null,text:'',title:'',imgSrc:null,imgCaption:'',signature:'日常切片'});
+  INDEX.unshift(key); saveIndex(INDEX);
+  ENTRIES.unshift(makeEntry(key));
+  cur=0;
+  renderSidebar();
+  loadCurrent();
+}
+
+// ── 刪除日記 ──
+function deleteEntry(i){
+  if(ENTRIES.length<=1) return;
+  if(!confirm('確定刪除這則日記？')) return;
+  const key=ENTRIES[i].key;
+  try{ localStorage.removeItem('pd-entry-'+key); }catch(e){}
+  INDEX.splice(i,1); saveIndex(INDEX);
+  ENTRIES.splice(i,1);
+  if(cur>=ENTRIES.length) cur=ENTRIES.length-1;
+  renderSidebar();
+  loadCurrent();
+}
+
+// ── SVG 工具 ──
+function makeSVG(wxKey,color,w,h){
+  const lj=wxKey==='thunder'?' stroke-linejoin="round"':'';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"${lj}>${WX_PATHS[wxKey]}</svg>`;
+}
+
+function renderWxBtns(moodKey,selectedKey){
+  const base=MOODS[moodKey].wxColor;
+  Object.keys(WEATHER).forEach(k=>{
+    const btn=document.getElementById('wx-'+k);
+    if(!btn) return;
+    const isSel=(k===selectedKey);
+    const color=isSel?base:base+'88';
+    btn.innerHTML=makeSVG(k,color,16,16);
+    btn.style.borderColor=isSel?base+'66':'transparent';
+    btn.style.background=isSel?'rgba(255,255,255,0.45)':'transparent';
+    btn.onmouseenter=()=>{ if(!isSel) btn.innerHTML=makeSVG(k,base+'bb',16,16); };
+    btn.onmouseleave=()=>{ if(!isSel) btn.innerHTML=makeSVG(k,base+'88',16,16); };
+  });
+}
+
+// ── 圖示 ──
+function icoHTML(key,size){
+  const m=MOODS[key];
+  if(m.icoSrc) return `<img src="${m.icoSrc}" style="width:${size}px;height:${size}px;object-fit:contain;display:block">`;
+  return `<span style="font-size:${size*0.9}px;line-height:1">${m.ico}</span>`;
+}
+function uploadMoodIco(key,input){
+  if(!input.files||!input.files[0])return;
+  const r=new FileReader();
+  r.onload=e=>{
+    MOODS[key].icoSrc=e.target.result;
+    const s=loadSettings(); s.moodIcons=s.moodIcons||{};
+    s.moodIcons[key]=e.target.result; saveSettings(s);
+    refreshIcos();
+  };
+  r.readAsDataURL(input.files[0]);
+}
+function refreshIcos(){
+  MOODKEYS.forEach(k=>document.getElementById('ci-'+k).innerHTML=icoHTML(k,22));
+  document.getElementById('badge-ico').innerHTML=icoHTML(ENTRIES[cur].mood,15);
+  renderSidebar();
+}
+
+// ── 自動儲存 ──
+function autoSave(){
+  const d=ENTRIES[cur];
+  d.text=document.getElementById('editor-text').value;
+  d.title=document.getElementById('title-input').value;
+  d.signature=document.getElementById('sig-input').value;
+  const cap=document.getElementById('img-caption-field');
+  if(cap) d.imgCaption=cap.value;
+  clearTimeout(saveTimer);
+  const h=document.getElementById('autosave-hint');
+  h.textContent='儲存中…';h.style.opacity='1';
+  saveTimer=setTimeout(()=>{
+    saveEntry(d.key,{mood:d.mood,weather:d.weather,text:d.text,title:d.title,imgSrc:d.imgSrc,imgCaption:d.imgCaption,signature:d.signature});
+    renderSidebar();
+    h.textContent='已自動儲存';
+    setTimeout(()=>h.style.opacity='0',1200);
+  },600);
+}
+
+// ── 主題 ──
+function applyTheme(key){
+  const m=MOODS[key];
+  document.getElementById('sidebar').style.background=m.sb;
+  ['toolbar','editor-wrap','sig-row'].forEach(id=>document.getElementById(id).style.background=m.bg);
+  document.getElementById('the-app').style.background=m.bg;
+  const fs=document.getElementById('font-select');
+  fs.style.background=m.bg; fs.style.color='rgba(0,0,0,0.65)';
+  document.getElementById('editor-text').style.color='rgba(0,0,0,0.72)';
+  document.getElementById('title-input').style.color='rgba(0,0,0,0.75)';
+  document.getElementById('sig-input').style.color='rgba(0,0,0,0.5)';
+  document.getElementById('badge-ico').innerHTML=icoHTML(key,15);
+  document.getElementById('badge-label').textContent=m.label;
+  const cap=document.getElementById('img-caption-field');
+  if(cap){cap.style.background=m.bg;cap.style.color='rgba(0,0,0,0.6)';}
+  renderWxBtns(key,ENTRIES[cur].weather);
+  updateWxBadge(key,ENTRIES[cur].weather);
+}
+
+function setMood(key){
+  document.querySelectorAll('.mood-chip').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('mc-'+key).classList.add('selected');
+  ENTRIES[cur].mood=key;
+  applyTheme(key);
+  autoSave();
+}
+
+// ── 天氣 ──
+function setWeather(key){
+  ENTRIES[cur].weather=(ENTRIES[cur].weather===key)?null:key;
+  renderWxBtns(ENTRIES[cur].mood,ENTRIES[cur].weather);
+  updateWxBadge(ENTRIES[cur].mood,ENTRIES[cur].weather);
+  autoSave();
+}
+function updateWxBadge(moodKey,wxKey){
+  const badge=document.getElementById('wx-badge');
+  if(wxKey){
+    const color=MOODS[moodKey].wxColor;
+    document.getElementById('wx-badge-svg').innerHTML=makeSVG(wxKey,color,12,12);
+    document.getElementById('wx-badge-lbl').textContent=WEATHER[wxKey].label;
+    document.getElementById('wx-badge-lbl').style.color=color;
+    badge.style.display='inline-flex';
+  } else badge.style.display='none';
+}
+
+function setFont(f){ document.getElementById('editor-text').style.fontFamily=f; }
+
+// ── 插圖 ──
+function triggerUpload(){
+  if(ENTRIES[cur].imgSrc){ENTRIES[cur].imgSrc=null;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();return;}
+  document.getElementById('img-upload').value='';
+  document.getElementById('img-upload').click();
+}
+function handleUpload(input){
+  if(!input.files||!input.files[0])return;
+  const r=new FileReader();
+  r.onload=e=>{ENTRIES[cur].imgSrc=e.target.result;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();};
+  r.readAsDataURL(input.files[0]);
+}
+function renderImgSlot(){
+  const slot=document.getElementById('img-slot');
+  const d=ENTRIES[cur]; const bg=MOODS[d.mood].bg;
+  if(!d.imgSrc){slot.innerHTML='';return;}
+  slot.innerHTML=`<div class="img-block">
+    <img class="diary-img" src="${d.imgSrc}" alt=""/>
+    <input id="img-caption-field" type="text" placeholder="加上圖說……"
+      value="${d.imgCaption.replace(/"/g,'&quot;')}"
+      oninput="ENTRIES[cur].imgCaption=this.value;autoSave()"
+      style="width:100%;border:none;border-top:1px solid rgba(0,0,0,0.07);padding:6px 10px;font-size:12px;outline:none;font-family:'Iansui',sans-serif;display:block;background:${bg};color:rgba(0,0,0,0.6);">
+    <button class="img-remove" onclick="removeImg()">×</button>
+  </div>`;
+}
+function removeImg(){ENTRIES[cur].imgSrc=null;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();}
+
+// ── 切換日期 ──
+function saveCurrent(){
+  const d=ENTRIES[cur];
+  d.text=document.getElementById('editor-text').value;
+  d.title=document.getElementById('title-input').value;
+  d.signature=document.getElementById('sig-input').value;
+  const cap=document.getElementById('img-caption-field');
+  if(cap) d.imgCaption=cap.value;
+  saveEntry(d.key,{mood:d.mood,weather:d.weather,text:d.text,title:d.title,imgSrc:d.imgSrc,imgCaption:d.imgCaption,signature:d.signature});
+}
+function loadCurrent(){
+  const nd=ENTRIES[cur];
+  document.getElementById('date-display').textContent=nd.date;
+  document.getElementById('day-display').textContent=nd.day;
+  document.getElementById('editor-text').value=nd.text;
+  document.getElementById('title-input').value=nd.title||'';
+  document.getElementById('sig-input').value=nd.signature||'日常切片';
+  document.getElementById('img-slot').innerHTML='';
+  document.querySelectorAll('.mood-chip').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('mc-'+nd.mood).classList.add('selected');
+  applyTheme(nd.mood);
+  renderImgSlot();
+  updateMobileTitle();
+}
+function switchDay(i){
+  saveCurrent();
+  cur=i;
+  renderSidebar();
+  loadCurrent();
+}
+
+// ── 改名 ──
+function openNameModal(){
+  const moodKey=ENTRIES[cur].mood;
+  const m=MOODS[moodKey];
+  const card=document.getElementById('nm-card');
+  card.style.background=m.bg;
+  const ok=document.getElementById('btn-nm-ok');
+  ok.style.background='rgba(255,255,255,0.55)';
+  ok.style.border='1px solid rgba(0,0,0,0.18)';
+  ok.style.color='rgba(0,0,0,0.65)';
+  document.getElementById('nm-fields').innerHTML=MOODKEYS.map(k=>`
+    <div class="nm-field">
+      <span class="nm-field-ico">${icoHTML(k,20)}</span>
+      <input id="nf-${k}" type="text" value="${MOODS[k].label}" maxlength="8"
+        style="background:rgba(255,255,255,0.55);color:rgba(0,0,0,0.68);">
+    </div>`).join('');
+  document.getElementById('name-modal').classList.add('show');
+}
+function saveNames(){
+  const labels={};
+  MOODKEYS.forEach(k=>{
+    const v=document.getElementById('nf-'+k).value.trim();
+    if(v){ MOODS[k].label=v; labels[k]=v; }
+    document.getElementById('cn-'+k).textContent=MOODS[k].label;
+  });
+  renderSidebar();
+  document.getElementById('badge-label').textContent=MOODS[ENTRIES[cur].mood].label;
+  const s=loadSettings(); s.moodLabels=labels; saveSettings(s);
+  document.getElementById('name-modal').classList.remove('show');
+}
+
+function bgClick(e,id){ if(e.target===document.getElementById(id)) document.getElementById(id).classList.remove('show'); }
+
+// ── 輸出 ──
+function openExport(){
+  const d=ENTRIES[cur]; const key=d.mood; const m=MOODS[key];
+  const card=document.getElementById('export-card');
+  card.style.background=m.exBg;
+  document.getElementById('ex-date').style.color=m.mutedColor;
+  document.getElementById('ex-lbl').style.color=m.mutedColor;
+  document.getElementById('ex-body').style.color=m.textColor;
+  document.getElementById('ex-caption').style.color=m.mutedColor;
+  document.getElementById('ex-footer').style.borderTopColor=m.lineColor;
+  document.getElementById('ex-short').style.color=m.mutedColor;
+  document.getElementById('ex-sig').style.color=m.mutedColor;
+  document.getElementById('ex-date').textContent=d.dateEx;
+  document.getElementById('ex-ico-wrap').innerHTML=icoHTML(key,24);
+  document.getElementById('ex-lbl').textContent=m.label;
+  const titleVal=document.getElementById('title-input').value.trim();
+  const exTitle=document.getElementById('ex-title');
+  if(titleVal){
+    exTitle.textContent=titleVal;
+    exTitle.style.display='block';
+    exTitle.style.color=m.textColor;
+  } else {
+    exTitle.style.display='none';
+  }
+  document.getElementById('ex-body').textContent=document.getElementById('editor-text').value||'（今天沒有留下文字。）';
+  document.getElementById('ex-short').textContent=d.short;
+  document.getElementById('ex-sig').textContent=document.getElementById('sig-input').value||d.signature||'';
+  const wxRow=document.getElementById('ex-wx-row');
+  if(d.weather){
+    document.getElementById('ex-wx-svg').innerHTML=makeSVG(d.weather,m.mutedColor,13,13);
+    document.getElementById('ex-wx-lbl').textContent=WEATHER[d.weather].label;
+    document.getElementById('ex-wx-lbl').style.color=m.mutedColor;
+    wxRow.style.display='flex';
+  } else wxRow.style.display='none';
+  const wrap=document.getElementById('ex-img-wrap');
+  if(d.imgSrc){
+    document.getElementById('ex-photo').src=d.imgSrc;
+    const cap=document.getElementById('img-caption-field');
+    document.getElementById('ex-caption').textContent=cap?cap.value:d.imgCaption;
+    wrap.style.display='block';
+  } else wrap.style.display='none';
+  document.getElementById('export-overlay').classList.add('show');
+}
+function doDownload(){
+  const card=document.getElementById('export-card');
+  const photo=document.getElementById('ex-photo');
+  const run=()=>{
+    html2canvas(card,{scale:2,backgroundColor:card.style.background,useCORS:true,allowTaint:true,logging:false}).then(c=>{
+      const a=document.createElement('a');
+      a.download=`薯薯日記_${ENTRIES[cur].date}.png`;
+      a.href=c.toDataURL('image/png');a.click();
+    });
+  };
+  // 如果有圖片，等它完全載入後再截圖
+  if(photo && photo.src && !photo.complete){
+    photo.onload=run;
+  } else {
+    run();
+  }
+}
+
+
+// ── 匯出備份 ──
+function backupData(){
+  saveCurrent();
+  const s=loadSettings();
+  const entries={};
+  INDEX.forEach(key=>{
+    entries[key]=loadEntry(key);
+  });
+  const backup={
+    version:1,
+    exportedAt:new Date().toISOString(),
+    settings:s,
+    index:INDEX,
+    entries:entries
+  };
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  const date=new Date();
+  a.download=`薯薯日記備份_${date.getFullYear()}${String(date.getMonth()+1).padStart(2,'0')}${String(date.getDate()).padStart(2,'0')}.json`;
+  a.href=URL.createObjectURL(blob);
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── 匯入備份 ──
+function restoreData(input){
+  if(!input.files||!input.files[0])return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const backup=JSON.parse(e.target.result);
+      if(!backup.version||!backup.entries||!backup.index){
+        alert('檔案格式不正確，請選擇薯薯日記匯出的備份檔。');
+        return;
+      }
+      if(!confirm(`備份日期：${backup.exportedAt?backup.exportedAt.slice(0,10):'不明'}\n共 ${backup.index.length} 則日記\n\n匯入後，衝突的日記將以備份檔為準。確定繼續？`)){
+        input.value='';return;
+      }
+      // 寫入 entries（備份優先蓋過本機）
+      Object.keys(backup.entries).forEach(key=>{
+        saveEntry(key,backup.entries[key]);
+      });
+      // 合併 index（備份的順序優先，補入本機有但備份沒有的）
+      const merged=[...backup.index];
+      INDEX.forEach(key=>{if(!merged.includes(key))merged.push(key);});
+      INDEX.length=0;
+      merged.forEach(k=>INDEX.push(k));
+      saveIndex(INDEX);
+      // 更新 ENTRIES 陣列
+      ENTRIES.length=0;
+      INDEX.forEach(key=>ENTRIES.push(makeEntry(key)));
+      // 匯入設定（情緒名稱、圖示）
+      if(backup.settings){
+        const s=backup.settings;
+        if(s.moodLabels) MOODKEYS.forEach(k=>{if(s.moodLabels[k]){MOODS[k].label=s.moodLabels[k];}});
+        if(s.moodIcons)  MOODKEYS.forEach(k=>{if(s.moodIcons[k]) {MOODS[k].icoSrc=s.moodIcons[k];}});
+        saveSettings(s);
+      }
+      // 重新渲染
+      cur=0;
+      MOODKEYS.forEach(k=>{
+        document.getElementById('ci-'+k).innerHTML=icoHTML(k,22);
+        document.getElementById('cn-'+k).textContent=MOODS[k].label;
+      });
+      renderSidebar();
+      loadCurrent();
+      alert(`匯入完成！共載入 ${backup.index.length} 則日記。`);
+    }catch(err){
+      alert('匯入失敗：'+err.message);
+    }
+    input.value='';
+  };
+  reader.readAsText(input.files[0]);
+}
+
+
+// ── 手機側欄開關 ──
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  sb.classList.toggle('open');
+  ov.classList.toggle('show');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('show');
+}
+
+// ── 手機頂部標題跟著當前日記走 ──
+function updateMobileTitle(){
+  const t=document.getElementById('mobile-title');
+  if(t){
+    const d=ENTRIES[cur];
+    t.textContent=d.title||d.date||'薯薯日記';
+  }
+}
+
+// ── 手機：切換日記後關閉側欄 ──
+function isMobile(){ return window.innerWidth<=640; }
+
+// ── 初始化 ──
+(function init(){
+  const s=loadSettings();
+  if(s.moodIcons) MOODKEYS.forEach(k=>{ if(s.moodIcons[k]) MOODS[k].icoSrc=s.moodIcons[k]; });
+  MOODKEYS.forEach(k=>{
+    document.getElementById('ci-'+k).innerHTML=icoHTML(k,22);
+    document.getElementById('cn-'+k).textContent=MOODS[k].label;
+  });
+  cur=0;
+  renderSidebar();
+  loadCurrent();
+  updateMobileTitle();
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
