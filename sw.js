@@ -1,48 +1,51 @@
-const CACHE = 'potato-diary-v1';
+const CACHE = 'potato-diary-20260920174910';
 const ASSETS = [
   './index.html',
-  './manifest.json',
-  'https://fonts.googleapis.com/css2?family=Iansui&family=ZCOOL+XiaoWei&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+  './manifest.json'
 ];
 
-// 安裝時快取所有資源
+// 安裝時快取核心檔案，外部資源失敗不阻擋
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(cache => {
-      // 字體和外部資源可能失敗，用 addAll 的個別版本避免全部卡住
-      return cache.addAll(['./index.html', './manifest.json']).then(() => {
-        return Promise.allSettled(
-          ASSETS.slice(2).map(url => cache.add(url).catch(() => {}))
-        );
-      });
-    })
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS))
   );
+  // 強制新 SW 立即接管，不等舊的閒置
   self.skipWaiting();
 });
 
-// 啟動時清除舊快取
+// 啟動時刪除所有舊版快取
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE).map(k => {
+        console.log('[SW] 刪除舊快取:', k);
+        return caches.delete(k);
+      }))
     )
   );
+  // 立即接管所有已開啟的分頁
   self.clients.claim();
 });
 
-// 請求時優先用快取，沒有再去網路
+// 網路優先策略：每次都先嘗試網路取得最新版
+// 失敗時才回退到快取（離線模式）
 self.addEventListener('fetch', e => {
+  // 只處理 GET，其他略過
+  if(e.request.method !== 'GET') return;
+
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      return cached || fetch(e.request).then(res => {
-        // 成功的話順手快取起來
-        if(res && res.status === 200 && res.type !== 'opaque'){
+    fetch(e.request)
+      .then(res => {
+        // 成功從網路取得，更新快取
+        if(res && res.status === 200){
           const clone = res.clone();
-          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
-      }).catch(() => cached);
-    })
+      })
+      .catch(() => {
+        // 離線時從快取回應
+        return caches.match(e.request);
+      })
   );
 });
