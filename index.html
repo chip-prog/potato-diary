@@ -196,6 +196,7 @@ html,body{height:100%;background:#f0ece6;display:flex;align-items:center;justify
     <div class="sidebar-actions">
       <div class="sb-action-btn" onclick="backupData()" title="匯出所有日記與設定">↓ 匯出備份</div>
       <div class="sb-action-btn" onclick="document.getElementById('restore-input').click()" title="從備份檔還原">↑ 匯入備份</div>
+      <div class="sb-action-btn" onclick="openGhSettings()" title="GitHub 圖片設定">⚙ 圖片設定</div>
     </div>
     <div class="add-btn" onclick="addEntry()">＋ 新增日記</div>
   </div>
@@ -333,6 +334,26 @@ html,body{height:100%;background:#f0ece6;display:flex;align-items:center;justify
     </div>
   </div>
 </div>
+</div>
+
+<!-- GitHub 圖片設定彈窗 -->
+<div class="overlay" id="gh-modal" onclick="bgClick(event,'gh-modal')">
+  <div style="display:flex;flex-direction:column;align-items:stretch;width:300px;margin:auto">
+    <div class="nm-card" id="gh-card" style="gap:12px">
+      <div class="nm-title">GitHub 圖片設定</div>
+      <div style="font-size:12px;color:rgba(0,0,0,0.45);line-height:1.7">圖片會上傳到你的私有 repository。<br>Token 只存在你的裝置上，不會外傳。</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:rgba(0,0,0,0.5)">Personal Access Token</div>
+        <input id="gh-token-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx"
+          style="border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:7px 10px;font-size:13px;outline:none;font-family:monospace;width:100%">
+        <div style="font-size:11px;color:rgba(0,0,0,0.35)">留空並儲存可清除現有 Token</div>
+      </div>
+      <div class="nm-actions">
+        <button class="btn-nm-cl" onclick="document.getElementById('gh-modal').classList.remove('show')">取消</button>
+        <button class="btn-nm-ok" id="btn-gh-ok" onclick="saveGhSettings()">儲存</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -584,24 +605,128 @@ function updateWxBadge(moodKey,wxKey){
 
 function setFont(f){ document.getElementById('editor-text').style.fontFamily=f; }
 
+// ── GitHub 圖片設定 ──
+const GH_OWNER = 'chip-prog';
+const GH_REPO  = 'potato-diary-images';
+
+function getGhToken(){
+  return localStorage.getItem('pd-gh-token')||'';
+}
+function saveGhToken(t){
+  localStorage.setItem('pd-gh-token', t.trim());
+}
+
+// 第一次使用時請使用者填入 Token
+function ensureToken(){
+  let token = getGhToken();
+  if(token) return token;
+  token = prompt('請輸入你的 GitHub Personal Access Token（只需填一次，之後會記住）：');
+  if(!token) return null;
+  saveGhToken(token);
+  return token.trim();
+}
+
+// 把圖片上傳到 GitHub，回傳公開可用的 raw URL
+async function uploadToGitHub(file){
+  const token = ensureToken();
+  if(!token) return null;
+
+  // 壓縮圖片到合理大小（最長邊 1200px，品質 0.82）
+  const compressed = await compressImage(file, 1200, 0.82);
+  const base64 = compressed.split(',')[1];
+
+  // 用時間戳產生唯一檔名
+  const ext = file.type === 'image/png' ? 'png' : 'jpg';
+  const filename = `img_${Date.now()}.${ext}`;
+  const apiUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${filename}`;
+
+  const res = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      message: `upload ${filename}`,
+      content: base64
+    })
+  });
+
+  if(!res.ok){
+    const err = await res.json().catch(()=>({}));
+    // Token 錯誤時清除，讓下次重新輸入
+    if(res.status === 401){
+      localStorage.removeItem('pd-gh-token');
+      alert('Token 驗證失敗，請重新輸入。');
+    } else {
+      alert('圖片上傳失敗：' + (err.message||res.status));
+    }
+    return null;
+  }
+
+  const data = await res.json();
+  // 回傳 raw 格式的 URL（可直接在 img src 使用）
+  return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main/${filename}`;
+}
+
+// 壓縮圖片
+function compressImage(file, maxSide, quality){
+  return new Promise(resolve=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let {width: w, height: h} = img;
+      if(w > maxSide || h > maxSide){
+        if(w > h){ h = Math.round(h * maxSide / w); w = maxSide; }
+        else      { w = Math.round(w * maxSide / h); h = maxSide; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = url;
+  });
+}
+
 // ── 插圖 ──
 function triggerUpload(){
-  if(ENTRIES[cur].imgSrc){ENTRIES[cur].imgSrc=null;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();return;}
+  if(ENTRIES[cur].imgSrc){
+    if(!confirm('移除這張圖片？')) return;
+    ENTRIES[cur].imgSrc=null;
+    ENTRIES[cur].imgCaption='';
+    renderImgSlot();
+    autoSave();
+    return;
+  }
   document.getElementById('img-upload').value='';
   document.getElementById('img-upload').click();
 }
-function handleUpload(input){
+
+async function handleUpload(input){
   if(!input.files||!input.files[0])return;
-  const r=new FileReader();
-  r.onload=e=>{ENTRIES[cur].imgSrc=e.target.result;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();};
-  r.readAsDataURL(input.files[0]);
+  const file = input.files[0];
+
+  // 顯示上傳中提示
+  const slot = document.getElementById('img-slot');
+  slot.innerHTML = `<div style="padding:16px;font-size:13px;color:rgba(0,0,0,0.4);font-family:'Iansui',sans-serif">圖片上傳中…</div>`;
+
+  const url = await uploadToGitHub(file);
+  if(!url){ slot.innerHTML=''; return; }
+
+  ENTRIES[cur].imgSrc = url;
+  ENTRIES[cur].imgCaption = '';
+  renderImgSlot();
+  autoSave();
 }
+
 function renderImgSlot(){
   const slot=document.getElementById('img-slot');
   const d=ENTRIES[cur]; const bg=MOODS[d.mood].bg;
   if(!d.imgSrc){slot.innerHTML='';return;}
   slot.innerHTML=`<div class="img-block">
-    <img class="diary-img" src="${d.imgSrc}" alt=""/>
+    <img class="diary-img" src="${d.imgSrc}" alt="" crossorigin="anonymous"/>
     <input id="img-caption-field" type="text" placeholder="加上圖說……"
       value="${d.imgCaption.replace(/"/g,'&quot;')}"
       oninput="ENTRIES[cur].imgCaption=this.value;autoSave()"
@@ -609,7 +734,13 @@ function renderImgSlot(){
     <button class="img-remove" onclick="removeImg()">×</button>
   </div>`;
 }
-function removeImg(){ENTRIES[cur].imgSrc=null;ENTRIES[cur].imgCaption='';renderImgSlot();autoSave();}
+function removeImg(){
+  if(!confirm('移除這張圖片？')) return;
+  ENTRIES[cur].imgSrc=null;
+  ENTRIES[cur].imgCaption='';
+  renderImgSlot();
+  autoSave();
+}
 
 // ── 切換日期 ──
 function saveCurrent(){
@@ -836,6 +967,31 @@ function updateMobileTitle(){
 
 // ── 手機：切換日記後關閉側欄 ──
 function isMobile(){ return window.innerWidth<=640; }
+
+
+// ── GitHub 設定彈窗 ──
+function openGhSettings(){
+  const card=document.getElementById('gh-card');
+  const m=MOODS[ENTRIES[cur].mood];
+  card.style.background=m.bg;
+  document.getElementById('btn-gh-ok').style.cssText='background:rgba(255,255,255,0.55);border:1px solid rgba(0,0,0,0.18);color:rgba(0,0,0,0.65);padding:5px 16px;border-radius:6px;font-size:13px;cursor:pointer';
+  // 顯示現有 Token（遮蔽）
+  const existing=getGhToken();
+  document.getElementById('gh-token-input').value=existing?'（已設定，重新輸入可更新）':'';
+  document.getElementById('gh-token-input').placeholder=existing?'留空保持不變':'ghp_xxxxxxxxxxxxxxxx';
+  document.getElementById('gh-modal').classList.add('show');
+}
+function saveGhSettings(){
+  const val=document.getElementById('gh-token-input').value.trim();
+  if(val && !val.startsWith('（')){
+    saveGhToken(val);
+    alert('Token 已儲存。');
+  } else if(val==='' && getGhToken()){
+    localStorage.removeItem('pd-gh-token');
+    alert('Token 已清除。');
+  }
+  document.getElementById('gh-modal').classList.remove('show');
+}
 
 // ── 初始化 ──
 (function init(){
