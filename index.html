@@ -356,6 +356,25 @@ html,body{height:100%;background:#f0ece6;display:flex;align-items:center;justify
   </div>
 </div>
 
+<!-- 新增日記 — 日期選擇彈窗 -->
+<div class="overlay" id="add-modal" onclick="bgClick(event,'add-modal')">
+  <div style="display:flex;flex-direction:column;align-items:stretch;width:280px;margin:auto">
+    <div class="nm-card" id="add-card" style="gap:14px">
+      <div class="nm-title">新增日記</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;color:rgba(0,0,0,0.5)">選擇日期</div>
+        <input id="add-date-input" type="date"
+          style="border:1px solid rgba(0,0,0,0.15);border-radius:6px;padding:7px 10px;font-size:14px;outline:none;font-family:'Iansui',sans-serif;width:100%;color:rgba(0,0,0,0.7);background:rgba(255,255,255,0.6)">
+        <div style="font-size:11px;color:rgba(0,0,0,0.35)">同一天可以建立多則日記</div>
+      </div>
+      <div class="nm-actions">
+        <button class="btn-nm-cl" onclick="document.getElementById('add-modal').classList.remove('show')">取消</button>
+        <button class="btn-nm-ok" id="btn-add-ok" onclick="confirmAddEntry()">新增</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── 資料 ──
 const MOODS={
@@ -400,11 +419,16 @@ function dateInfo(d){
 // ── 建立條目物件 ──
 function makeEntry(key){
   const saved=loadEntry(key);
-  // key 格式：YYYY-M-D 或 custom-timestamp
   let di;
   if(key.startsWith('custom-')){
-    const ts=parseInt(key.replace('custom-',''));
-    di=dateInfo(new Date(ts));
+    // 如果有存 _date（使用者指定的日期），優先用它
+    if(saved._date){
+      const [y,m,d]=saved._date.split('-').map(Number);
+      di=dateInfo(new Date(y,m-1,d));
+    } else {
+      const ts=parseInt(key.replace('custom-',''));
+      di=dateInfo(new Date(ts));
+    }
   } else {
     const [y,m,d]=key.split('-').map(Number);
     di=dateInfo(new Date(y,m-1,d));
@@ -471,13 +495,44 @@ function renderSidebar(){
 
 // ── 新增日記 ──
 function addEntry(){
+  // 預填今天日期
+  const now=new Date();
+  const todayStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  document.getElementById('add-date-input').value=todayStr;
+  // 套用目前情緒的背景色到彈窗
+  const m=MOODS[ENTRIES[cur]?ENTRIES[cur].mood:'daisy'];
+  const card=document.getElementById('add-card');
+  card.style.background=m.bg;
+  const ok=document.getElementById('btn-add-ok');
+  ok.style.cssText='background:rgba(255,255,255,0.55);border:1px solid rgba(0,0,0,0.18);color:rgba(0,0,0,0.65);padding:5px 16px;border-radius:6px;font-size:13px;cursor:pointer';
+  document.getElementById('add-modal').classList.add('show');
+}
+
+function confirmAddEntry(){
+  const val=document.getElementById('add-date-input').value;
+  if(!val){ alert('請選擇日期'); return; }
   saveCurrent();
-  const ts=Date.now();
-  const key=`custom-${ts}`;
-  saveEntry(key,{mood:'daisy',weather:null,text:'',title:'',imgSrc:null,imgCaption:'',signature:'日常切片'});
+  // 用日期字串當 key（YYYY-M-D 格式，和預設的一致）
+  const [y,m,d]=val.split('-').map(Number);
+  // 若同日已有日記，用時間戳區分
+  let key=`${y}-${m}-${d}`;
+  if(INDEX.includes(key)) key=`custom-${Date.now()}`;
+  saveEntry(key,{mood:'daisy',weather:null,text:'',title:'',imgSrc:null,imgCaption:'',signature:localStorage.getItem('pd-last-sig')||'日常切片',_date:val});
   INDEX.unshift(key); saveIndex(INDEX);
-  ENTRIES.unshift(makeEntry(key));
+  // makeEntry 要能讀到正確日期
+  const entry=makeEntry(key);
+  // 如果是 custom key 但有指定日期，手動覆寫日期資訊
+  if(key.startsWith('custom-')){
+    const di=dateInfo(new Date(y,m-1,d));
+    Object.assign(entry, di);
+    // 把正確日期存回 entry 資料
+    const saved=loadEntry(key);
+    saved._date=val;
+    saveEntry(key,{...saved, ...di});
+  }
+  ENTRIES.unshift(entry);
   cur=0;
+  document.getElementById('add-modal').classList.remove('show');
   renderSidebar();
   loadCurrent();
 }
@@ -539,19 +594,26 @@ function refreshIcos(){
   renderSidebar();
 }
 
-// ── 自動儲存 ──
-function autoSave(){
+// ── 從畫面同步到記憶體（每次都立即執行）──
+function syncToMemory(){
   const d=ENTRIES[cur];
   d.text=document.getElementById('editor-text').value;
   d.title=document.getElementById('title-input').value;
   d.signature=document.getElementById('sig-input').value;
   const cap=document.getElementById('img-caption-field');
   if(cap) d.imgCaption=cap.value;
+  return d;
+}
+
+// ── 自動儲存（立即同步記憶體，debounce 寫 localStorage）──
+function autoSave(){
+  const d=syncToMemory();
   clearTimeout(saveTimer);
   const h=document.getElementById('autosave-hint');
   h.textContent='儲存中…';h.style.opacity='1';
   saveTimer=setTimeout(()=>{
     saveEntry(d.key,{mood:d.mood,weather:d.weather,text:d.text,title:d.title,imgSrc:d.imgSrc,imgCaption:d.imgCaption,signature:d.signature});
+    if(d.signature) localStorage.setItem('pd-last-sig',d.signature);
     renderSidebar();
     h.textContent='已自動儲存';
     setTimeout(()=>h.style.opacity='0',1200);
@@ -744,12 +806,9 @@ function removeImg(){
 
 // ── 切換日期 ──
 function saveCurrent(){
-  const d=ENTRIES[cur];
-  d.text=document.getElementById('editor-text').value;
-  d.title=document.getElementById('title-input').value;
-  d.signature=document.getElementById('sig-input').value;
-  const cap=document.getElementById('img-caption-field');
-  if(cap) d.imgCaption=cap.value;
+  const d=syncToMemory();
+  // 清掉還在等待的 debounce，直接立即寫入 localStorage
+  clearTimeout(saveTimer);
   saveEntry(d.key,{mood:d.mood,weather:d.weather,text:d.text,title:d.title,imgSrc:d.imgSrc,imgCaption:d.imgCaption,signature:d.signature});
 }
 function loadCurrent(){
