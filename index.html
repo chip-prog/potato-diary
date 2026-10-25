@@ -579,14 +579,45 @@ function icoHTML(key,size){
 }
 function uploadMoodIco(key,input){
   if(!input.files||!input.files[0])return;
-  const r=new FileReader();
-  r.onload=e=>{
-    MOODS[key].icoSrc=e.target.result;
-    const s=loadSettings(); s.moodIcons=s.moodIcons||{};
-    s.moodIcons[key]=e.target.result; saveSettings(s);
-    refreshIcos();
-  };
-  r.readAsDataURL(input.files[0]);
+  const token=getGhToken();
+  if(!token){
+    // 沒有 token，退回 base64 存法（但限制大小）
+    const r=new FileReader();
+    r.onload=e=>{
+      const b64=e.target.result;
+      if(b64.length>150000){ alert('圖片太大，請改用較小的圖（建議 100KB 以下）或先設定 GitHub token 來儲存大圖。'); return; }
+      MOODS[key].icoSrc=b64;
+      const s=loadSettings(); s.moodIcons=s.moodIcons||{};
+      s.moodIcons[key]=b64; saveSettings(s);
+      refreshIcos();
+    };
+    r.readAsDataURL(input.files[0]);
+    return;
+  }
+  // 有 token：壓縮後上傳 GitHub，只存 URL
+  compressImage(input.files[0],256,0.82).then(blob=>{
+    const fr=new FileReader();
+    fr.onload=async ev=>{
+      const b64=ev.target.result.split(',')[1];
+      const fname=`mood-icon-${key}-${Date.now()}.jpg`;
+      try{
+        const res=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${fname}`,{
+          method:'PUT',
+          headers:{'Authorization':'token '+token,'Content-Type':'application/json'},
+          body:JSON.stringify({message:`add mood icon ${key}`,content:b64})
+        });
+        if(!res.ok) throw new Error('upload failed');
+        const url=`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main/${fname}`;
+        MOODS[key].icoSrc=url;
+        const s=loadSettings(); s.moodIcons=s.moodIcons||{};
+        s.moodIcons[key]=url; saveSettings(s);
+        refreshIcos();
+      }catch(err){
+        alert('上傳圖示失敗，請確認 GitHub token 是否有效。');
+      }
+    };
+    fr.readAsDataURL(blob);
+  });
 }
 function refreshIcos(){
   MOODKEYS.forEach(k=>document.getElementById('ci-'+k).innerHTML=icoHTML(k,22));
@@ -984,7 +1015,14 @@ function restoreData(input){
       if(backup.settings){
         const s=backup.settings;
         if(s.moodLabels) MOODKEYS.forEach(k=>{if(s.moodLabels[k]){MOODS[k].label=s.moodLabels[k];}});
-        if(s.moodIcons)  MOODKEYS.forEach(k=>{if(s.moodIcons[k]) {MOODS[k].icoSrc=s.moodIcons[k];}});
+        if(s.moodIcons){
+          // 只接受 URL（http/https），過濾掉舊的 base64 大圖避免 localStorage 爆滿
+          MOODKEYS.forEach(k=>{
+            const v=s.moodIcons[k];
+            if(v && v.startsWith('http')) MOODS[k].icoSrc=v;
+            else delete s.moodIcons[k]; // 丟棄 base64
+          });
+        }
         saveSettings(s);
       }
       // 重新渲染
