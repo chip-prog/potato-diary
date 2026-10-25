@@ -607,11 +607,13 @@ function syncToMemory(){
 
 // ── 自動儲存（立即同步記憶體，debounce 寫 localStorage）──
 function autoSave(){
-  const d=syncToMemory();
+  syncToMemory(); // 立刻把 DOM 值同步到 ENTRIES[cur]
   clearTimeout(saveTimer);
   const h=document.getElementById('autosave-hint');
   h.textContent='儲存中…';h.style.opacity='1';
   saveTimer=setTimeout(()=>{
+    // debounce 結束時再讀一次最新值（避免 snapshot 過時）
+    const d=syncToMemory();
     saveEntry(d.key,{mood:d.mood,weather:d.weather,text:d.text,title:d.title,imgSrc:d.imgSrc,imgCaption:d.imgCaption,signature:d.signature});
     if(d.signature) localStorage.setItem('pd-last-sig',d.signature);
     renderSidebar();
@@ -1064,6 +1066,11 @@ function saveGhSettings(){
   renderSidebar();
   loadCurrent();
   updateMobileTitle();
+
+  // ── 強制儲存：關閉分頁 / 切到其他 App 時立即寫入，不等 debounce ──
+  window.addEventListener('beforeunload', ()=>{ saveCurrent(); });
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveCurrent(); });
+  window.addEventListener('pagehide', ()=>{ saveCurrent(); }); // iOS Safari
 })();
 </script>
 <script>
